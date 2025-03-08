@@ -15,7 +15,12 @@
                 "title": "media-overlay",
                 "width": 300,
                 "height": 80,
-                "resizable": false
+                "resizable": false,
+                "decorations": false,
+                "visible": false,
+                "skipTaskbar": true,
+                "alwaysOnTop": true,
+                "focus": false
             }
         ],
         "security": {
