@@ -1,4 +1,5 @@
 use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+use serde::Serialize;
 
 fn get_properties() -> windows::Media::Control::GlobalSystemMediaTransportControlsSessionMediaProperties {
     let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().unwrap().get().unwrap();
@@ -6,14 +7,20 @@ fn get_properties() -> windows::Media::Control::GlobalSystemMediaTransportContro
     session.TryGetMediaPropertiesAsync().unwrap().get().unwrap()
 }
 
+#[derive(Debug, Serialize)]
+struct NowPlaying {
+    artist: String,
+    title: String,
+}
+
 #[tauri::command]
-fn get_now_playing() -> String {
+fn get_now_playing() -> NowPlaying {
     let properties = get_properties();
 
     let artist = properties.Artist().unwrap().to_string();
     let title = properties.Title().unwrap().to_string();
 
-    format!("{} - {}", artist, title)
+    NowPlaying { artist, title }
 }
 
 #[tauri::command]
