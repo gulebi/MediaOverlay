@@ -24,8 +24,21 @@ fn get_now_playing() -> NowPlaying {
 }
 
 #[tauri::command]
-fn get_thumbnail() -> String {
-   "foo".to_string()
+async fn get_thumbnail() -> String {
+    let properties = get_properties();
+
+    let thumbnail = properties.Thumbnail().unwrap();
+    let stream = thumbnail.OpenReadAsync().unwrap().get().unwrap();
+    let size = stream.Size().unwrap() as usize;
+    let reader = windows::Storage::Streams::DataReader::CreateDataReader(&stream).unwrap();
+    reader.LoadAsync(size as u32).unwrap().get().unwrap();
+
+    let mut buffer = vec![0u8; size];
+    reader.ReadBytes(&mut buffer).unwrap();
+
+    let base64_thumbnail = base64::encode(buffer);
+
+    format!("data:image/png;base64,{}", base64_thumbnail)
 }
 
 
