@@ -1,24 +1,57 @@
 use serde::Serialize;
-use windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager;
+use windows::{Foundation::TypedEventHandler, Media::Control::{GlobalSystemMediaTransportControlsSessionManager, GlobalSystemMediaTransportControlsSessionMediaProperties}};
 
 use std::thread;
 use std::time::Duration;
-use tauri::{Manager, Window};
+use tauri::{Emitter, Manager, Window};
 
-fn get_properties(
-) -> windows::Media::Control::GlobalSystemMediaTransportControlsSessionMediaProperties {
+fn setup_media_listener(app: &mut tauri::App){
     let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
         .unwrap()
         .get()
         .unwrap();
     let session = manager.GetCurrentSession().unwrap();
+
+    let app_handle = app.handle().clone();
+    let session_clone = session.clone();
+
+    session.MediaPropertiesChanged(
+        &TypedEventHandler::new(move |_, _| {
+            let properties = session_clone.TryGetMediaPropertiesAsync().unwrap().get().unwrap();
+            let artist = properties.Artist().unwrap().to_string();
+            let title = properties.Title().unwrap().to_string();
+
+            app_handle.emit("song_changed", NowPlaying { artist, title }).unwrap();
+
+            Ok(())
+        })
+    ).unwrap();
+}
+
+
+fn get_properties() -> GlobalSystemMediaTransportControlsSessionMediaProperties {
+    let manager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync()
+        .unwrap()
+        .get()
+        .unwrap();
+    let session = manager.GetCurrentSession().unwrap();
+
     session.TryGetMediaPropertiesAsync().unwrap().get().unwrap()
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 struct NowPlaying {
     artist: String,
     title: String,
+}
+
+fn show_window(window: Window) {
+    window.show().unwrap();
+    let window_clone = window.clone();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(5));
+        window_clone.hide().unwrap();
+    });
 }
 
 #[tauri::command]
@@ -28,13 +61,7 @@ fn get_now_playing(window: Window) -> NowPlaying {
     let artist = properties.Artist().unwrap().to_string();
     let title = properties.Title().unwrap().to_string();
 
-    window.show().unwrap();
-
-    let window_clone = window.clone();
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(5));
-        window_clone.hide().unwrap();
-    });
+    show_window(window);
 
     NowPlaying { artist, title }
 }
@@ -63,7 +90,7 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![get_now_playing, get_thumbnail])
-        .setup(|app| {
+        .setup(|app: &mut tauri::App| {
             let win = app.get_webview_window("main").unwrap();
             let offset_position = tauri::PhysicalPosition  {
                 x: 20,
@@ -71,6 +98,8 @@ pub fn run() {
             };
 
             let _ = win.as_ref().window().set_position(tauri::Position::Physical(offset_position));
+
+            setup_media_listener(app);
 
             Ok(())
         })

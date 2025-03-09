@@ -1,6 +1,7 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 type Song = {
     artist: string;
@@ -26,9 +27,19 @@ export default function NowPlaying() {
     useEffect(() => {
         fetchNowPlaying();
 
-        setInterval(async () => {
+        // setInterval(async () => {
+        //     fetchNowPlaying();
+        // }, 20000);
+
+        const unlisten = listen<Song>("song_changed", (event) => {
+            console.log(event);
+
             fetchNowPlaying();
-        }, 20000);
+        });
+
+        return () => {
+            unlisten.then((fn) => fn());
+        };
     }, []);
 
     return (
