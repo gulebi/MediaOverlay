@@ -3,21 +3,23 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
-type Song = {
+type NowPlaying = {
     artist: string;
     title: string;
 };
 
 export default function NowPlaying() {
-    const [song, setSong] = useState<Song>({ title: "Fetching...", artist: "Fetching..." });
+    const [song, setSong] = useState<NowPlaying>({ title: "", artist: "" });
     const [thumbnail, setThumbnail] = useState<string>("");
 
     const fetchNowPlaying = async () => {
         try {
-            const result = await invoke<Song>("get_now_playing");
+            const result = await invoke<NowPlaying>("get_now_playing");
             setSong(result);
             const thumbnail = await invoke<string>("get_thumbnail");
             setThumbnail(thumbnail);
+
+            await invoke("show_window");
         } catch (error) {
             console.log(error);
             setSong({ title: "No media", artist: "No artist" });
@@ -27,11 +29,7 @@ export default function NowPlaying() {
     useEffect(() => {
         fetchNowPlaying();
 
-        // setInterval(async () => {
-        //     fetchNowPlaying();
-        // }, 20000);
-
-        const unlisten = listen<Song>("song_changed", (event) => {
+        const unlisten = listen<NowPlaying>("song_changed", (event) => {
             console.log(event);
 
             fetchNowPlaying();
@@ -51,9 +49,6 @@ export default function NowPlaying() {
                     <h1 className="text-sm">{song.artist}</h1>
                 </div>
             </div>
-            {/* <button className="bg-gray-700 py-1 px-2 rounded-md cursor-pointer" onClick={fetchNowPlaying}>
-                Rel
-            </button> */}
         </div>
     );
 }
